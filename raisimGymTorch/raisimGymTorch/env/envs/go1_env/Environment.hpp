@@ -47,7 +47,7 @@ class ENVIRONMENT : public RaisimGymEnv {
     ref_contact_state_.setZero();
 
     /// load reference trajectory
-    std::string ref_filename = "traj/" + cfg["ref_filename"].As<std::string>() + ".csv";
+    std::string ref_filename = "traj_processed/" + cfg["ref_filename"].As<std::string>() + ".csv";
     // check if reference trajectory csv file exists
     // https://www.tutorialspoint.com/the-best-way-to-check-if-a-file-exists-using-standard-c-cplusplus
     std::ifstream ifile;
@@ -137,8 +137,8 @@ class ENVIRONMENT : public RaisimGymEnv {
 
     /// this is nominal configuration of anymal
     // note: although this gets overridden by reset(), this seems to be necessary for correct rendering
-    gc_init_ << 0, 0, 0.54, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.0, -0.0, 0.0, -0.0, 0.0, -0.0, 0.0, 0.0, 0.0, 0.0;
-    offset_joints_ << 0.0,0.8,-1.7,0.0,0.8,-1.7,0.0,0.8,-1.7,0.0,0.8,-1.7;
+    gc_init_ << 0, 0, 0.44, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.0, -0.0, 0.0, -0.0, 0.0, -0.0, 0.0, 0.0, 0.0, 0.0;
+    //offset_joints_ << 0.0,0.8,-1.7,0.0,0.8,-1.7,0.0,0.8,-1.7,0.0,0.8,-1.7;
 
     /// set initial force to zero
     go1_->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_));
@@ -230,8 +230,7 @@ class ENVIRONMENT : public RaisimGymEnv {
     sim_step_ = phase_;
     total_reward_ = 0;
     setReferenceMotionTraj();
-    gc_init_ << 0.,0.,0.34,1.0,0.,0.,0., ref_joint_pos_;
-
+    gc_init_ << ref_body_pos_, ref_body_quat_, ref_joint_pos_;
     gv_init_ << ref_body_lin_vel_, ref_body_ang_vel_, ref_joint_vel_;
 
     // clear history
@@ -487,12 +486,12 @@ class ENVIRONMENT : public RaisimGymEnv {
     // computeTrackingError(); // redundant call for good measure
 
     // if error components ever go beyond 2 standard deviations of the reward gaussian
-    // if (std::sqrt(position_error_sq_) > position_std_ * 2.5) {
-    //   return true;
-    // }
-    // if (std::sqrt(orientation_error_sq_) > orientation_std_ * 2.5) {
-    //   return true;
-    // }
+    if (std::sqrt(position_error_sq_) > position_std_ * 2.5) {
+      return true;
+    }
+    if (std::sqrt(orientation_error_sq_) > orientation_std_ * 2.5) {
+      return true;
+    }
     if (std::sqrt(joint_error_sq_) > joint_std_ * 2.5) {
       return true;
     }
@@ -508,15 +507,15 @@ class ENVIRONMENT : public RaisimGymEnv {
   }
 
   void setReferenceMotionTraj() {
-    Eigen::Matrix<double, 30, 1> traj_t;
+    Eigen::Matrix<double, 37, 1> traj_t;
     traj_t << ref_traj_.row(sim_step_).transpose();
     //ref_t_ = traj_t(0);
-    //ref_body_pos_ << traj_t.segment(1, 3);
-    //ref_body_quat_ << traj_t.segment(4, 4);
-    ref_body_lin_vel_ << traj_t.segment(0, 3);
-    ref_body_ang_vel_ << traj_t.segment(3, 3);
-    ref_joint_pos_ << traj_t.segment(6, 12) + offset_joints_;
-    ref_joint_vel_ << traj_t.segment(18, 12);
+    ref_body_pos_ << traj_t.segment(0, 3);
+    ref_body_quat_ << traj_t.segment(3, 4);
+    ref_joint_pos_ << traj_t.segment(7, 12);
+    ref_body_lin_vel_ << traj_t.segment(19, 3);
+    ref_body_ang_vel_ << traj_t.segment(22, 3);
+    ref_joint_vel_ << traj_t.segment(25, 12);
     //ref_joint_torque_ << traj_t.segment(30, 8);
 
     //ref_contact_state_ << ref_contact_state_traj_.row(sim_step_).transpose();
@@ -537,8 +536,8 @@ class ENVIRONMENT : public RaisimGymEnv {
     raisim::mattransposematmul(rot, rot2, rot_error);
     raisim::rotMatToQuat(rot_error, quat_error);
 
-    //position_error_sq_ = (gc_.segment(0,3) - ref_body_pos_).squaredNorm();
-    //orientation_error_sq_ = quat_error.e().tail(3).squaredNorm();
+    position_error_sq_ = (gc_.segment(0,3) - ref_body_pos_).squaredNorm();
+    orientation_error_sq_ = quat_error.e().tail(3).squaredNorm();
     joint_error_sq_ = (gc_.tail(12) - ref_joint_pos_).squaredNorm();
     if (action_prev_.squaredNorm() == 0.0) {
       action_diff_sq_ = 0.0;

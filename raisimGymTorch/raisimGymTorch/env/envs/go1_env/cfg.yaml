@@ -11,7 +11,7 @@ environment:
   simulation_dt: 0.001 #0.002
   control_dt: 0.02 #0.02
   max_time: 100.0
-  ref_filename: stand still
+  ref_filename: preprocessed_stand still
   disable_termination: False
   randomization:
     friction:
