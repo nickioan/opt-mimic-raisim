@@ -230,6 +230,7 @@ class ENVIRONMENT : public RaisimGymEnv {
     sim_step_ = phase_;
     total_reward_ = 0;
     setReferenceMotionTraj();
+
     gc_init_ << ref_body_pos_, ref_body_quat_, ref_joint_pos_;
     gv_init_ << ref_body_lin_vel_, ref_body_ang_vel_, ref_joint_vel_;
 
