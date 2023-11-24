@@ -21,11 +21,12 @@ server = raisim.RaisimServer(world)
 ground = world.addGround()
 
 anymal = world.addArticulatedSystem(anymal_urdf_file)
-anymal.setName("anymal")
+anymal.setName("Go1")
 anymal_nominal_joint_config = np.array([0, -1.5, 0.54, 1.0, 0.0, 0.0, 0.0, 0.03, 0.4, -0.8,
                                         -0.03, 0.4, -0.8, 0.03, -0.4, 0.8, -0.03, -0.4, 0.8])
+
 anymal.setGeneralizedCoordinate(anymal_nominal_joint_config)
-anymal.setPdGains(200*np.ones([18]), np.ones([18]))
+anymal.setPdGains(50*np.ones([18]), 0.2*np.ones([18]))
 anymal.setPdTarget(anymal_nominal_joint_config, np.zeros([18]))
 
 # laikago = world.addArticulatedSystem(laikago_urdf_file)
@@ -50,6 +51,7 @@ solo8_nominal_joint_config[2] = 0.5
 solo8_nominal_joint_config[3] = 1
 solo8_nominal_joint_config[7:] = np.array([np.pi/4.0, -np.pi/2.0, np.pi/4.0, -np.pi/2.0,
                                            -np.pi/4.0, np.pi/2.0, -np.pi/4.0, np.pi/2.0])
+
 solo8.setGeneralizedCoordinate(solo8_nominal_joint_config)
 solo8.setPdGains(3.0*np.ones([14]), 0.5*np.ones([14]))
 solo8.setPdTarget(solo8_nominal_joint_config, np.zeros([14]))

@@ -47,7 +47,18 @@ def updateTargets(index):
 
     go1.setPdTarget(p_targets,d_targets)
     pos,vel = go1.getState()
-    state = np.hstack((pos,vel))
+    footIndex = go1.getBodyIdx("LF_SHANK")
+    cotacts = [0,0,0,0]
+    for contact in go1.getContacts():
+        if contact.getlocalBodyIndex() == go1.getBodyIdx("RR_calf"):
+            cotacts[0] = 1
+        elif contact.getlocalBodyIndex() == go1.getBodyIdx("RL_calf"):
+            cotacts[1] = 1
+        elif contact.getlocalBodyIndex() == go1.getBodyIdx("FR_calf"):
+            cotacts[2] = 1
+        elif contact.getlocalBodyIndex() == go1.getBodyIdx("FL_calf"):
+            cotacts[3] = 1
+    state = np.hstack((pos,vel,cotacts))
     world.integrate()
     return state
 
@@ -105,6 +116,6 @@ for filename in os.listdir(directory):
             counter+=1
             if counter >= n_data:
                 break
-    np.savetxt('go1_motions_processed/preprocessed_'+filename, states, delimiter=",")
+    np.savetxt('go1_motions_w_foot_contact/preprocessed_'+filename, states, delimiter=",")
 
 server.killServer()

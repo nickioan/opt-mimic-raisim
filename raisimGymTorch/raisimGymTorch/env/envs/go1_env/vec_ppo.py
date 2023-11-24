@@ -107,6 +107,7 @@ class RL(object):
         #self.env.env.disableViewer = False
         self.num_inputs = env.observation_space.shape[0]
         self.num_outputs = env.action_space.shape[0]
+
         self.hidden_layer = hidden_layer
 
         self.params = Params()
@@ -466,7 +467,7 @@ class RL(object):
     def collect_samples_multithread(self):
         #queue = Queue.Queue()
         import time
-        self.num_envs = 200
+        self.num_envs = 10
         self.start = time.time()
         self.lr = 1e-4
         self.weight = 10

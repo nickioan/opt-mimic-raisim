@@ -1,7 +1,7 @@
 if __name__ == '__main__':
     import json
     from ruamel.yaml import YAML, dump, RoundTripDumper
-    from raisimGymTorch.env.bin import solo8_env
+    from raisimGymTorch.env.bin import go1_env
     from raisimGymTorch.env.RaisimGymVecEnv import RaisimGymVecTorchEnv as VecEnv
     from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 
@@ -37,11 +37,11 @@ if __name__ == '__main__':
 
     # manually change config parameters
     cfg['environment']['num_envs'] = 1 # no parallel simulation
-    # cfg['environment']['disable_termination'] = True # disable early termination
+    cfg['environment']['disable_termination'] = True # disable early termination
 
     # create environment from the configuration file
     env = VecEnv(
-        solo8_env.RaisimGymEnv(
+        go1_env.RaisimGymEnv(
             home_path + "/rsc",
             dump(
                 cfg['environment'],

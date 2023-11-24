@@ -47,7 +47,7 @@ class ENVIRONMENT : public RaisimGymEnv {
     ref_contact_state_.setZero();
 
     /// load reference trajectory
-    std::string ref_filename = "traj_processed/" + cfg["ref_filename"].As<std::string>() + ".csv";
+    std::string ref_filename = "traj_w_foot/" + cfg["ref_filename"].As<std::string>() + ".csv";
     // check if reference trajectory csv file exists
     // https://www.tutorialspoint.com/the-best-way-to-check-if-a-file-exists-using-standard-c-cplusplus
     std::ifstream ifile;
@@ -144,11 +144,11 @@ class ENVIRONMENT : public RaisimGymEnv {
     go1_->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_));
 
     // set actuation limits
-    double jointLimit = 2.7;
-    Eigen::VectorXd jointUpperLimit(gvDim_), jointLowerLimit(gvDim_);
-    jointUpperLimit.setZero(); jointUpperLimit.tail(nJoints_).setConstant(jointLimit);
-    jointLowerLimit.setZero(); jointLowerLimit.tail(nJoints_).setConstant(-jointLimit);
-    go1_->setActuationLimits(jointUpperLimit, jointLowerLimit);
+    // double jointLimit = 2.7;
+    // Eigen::VectorXd jointUpperLimit(gvDim_), jointLowerLimit(gvDim_);
+    // jointUpperLimit.setZero(); jointUpperLimit.tail(nJoints_).setConstant(jointLimit);
+    // jointLowerLimit.setZero(); jointLowerLimit.tail(nJoints_).setConstant(-jointLimit);
+    // go1_->setActuationLimits(jointUpperLimit, jointLowerLimit);
 
     /// MUST BE DONE FOR ALL ENVIRONMENTS
     horizon_ = 3;
@@ -297,8 +297,8 @@ class ENVIRONMENT : public RaisimGymEnv {
       go1_->getState(gc_, gv_);
 
       // explicit PD control
-      torqueCommand_.tail(nJoints_) = 3.0 * (pTarget_ - gc_).tail(nJoints_) +
-                                      0.3 * (vTarget_ - gv_).tail(nJoints_);
+      torqueCommand_.tail(nJoints_) = 50 * (pTarget_ - gc_).tail(nJoints_) +
+                                      5 * (vTarget_ - gv_).tail(nJoints_);
                                       // torqueFeedforward_.tail(nJoints_);
       
       torqueCommand_.tail(nJoints_) *= torque_scale_;
@@ -357,11 +357,12 @@ class ENVIRONMENT : public RaisimGymEnv {
   }
 
   void computeReward() {
-    // rewards_.record("position", std::exp(-position_error_sq_ / (2.0 * position_std_ * position_std_)));
-    // rewards_.record("orientation", std::exp(-orientation_error_sq_ / (2.0 * orientation_std_ * orientation_std_)));
+    rewards_.record("position", std::exp(-position_error_sq_ / (2.0 * position_std_ * position_std_)));
+    rewards_.record("orientation", std::exp(-orientation_error_sq_ / (2.0 * orientation_std_ * orientation_std_)));
     rewards_.record("joint", std::exp(-joint_error_sq_ / (2.0 * joint_std_ * joint_std_)));
     rewards_.record("action_diff", std::exp(-action_diff_sq_ / (2.0 * action_diff_std_ * action_diff_std_)));
-    rewards_.record("max_torque", std::exp(-max_torque_ * max_torque_ / (2.0 * max_torque_std_ * max_torque_std_)));
+    rewards_.record("foot_track",foot_reward_);
+    //rewards_.record("max_torque", std::exp(-max_torque_ * max_torque_ / (2.0 * max_torque_std_ * max_torque_std_)));
 
     // // uncomment to print reward components. Save to csv file via
     // // python test_policy.py exp-name/iterX.pt >> exp-name-reward-log.csv
@@ -499,16 +500,16 @@ class ENVIRONMENT : public RaisimGymEnv {
     if (std::sqrt(action_diff_sq_) > action_diff_std_ * 2.5) {
       return true;
     }
-    if (max_torque_ > max_torque_std_ * 2.5) {
-      return true;
-    }
+    // if (max_torque_ > max_torque_std_ * 2.5) {
+    //   return true;
+    // }
 
     terminalReward = 0.f;
     return false;
   }
 
   void setReferenceMotionTraj() {
-    Eigen::Matrix<double, 37, 1> traj_t;
+    Eigen::Matrix<double, 41, 1> traj_t;
     traj_t << ref_traj_.row(sim_step_).transpose();
     //ref_t_ = traj_t(0);
     ref_body_pos_ << traj_t.segment(0, 3);
@@ -517,6 +518,7 @@ class ENVIRONMENT : public RaisimGymEnv {
     ref_body_lin_vel_ << traj_t.segment(19, 3);
     ref_body_ang_vel_ << traj_t.segment(22, 3);
     ref_joint_vel_ << traj_t.segment(25, 12);
+    ref_foot_contact << traj_t.segment(37, 4); //Comment Out If not using foot contact
     //ref_joint_torque_ << traj_t.segment(30, 8);
 
     //ref_contact_state_ << ref_contact_state_traj_.row(sim_step_).transpose();
@@ -545,7 +547,33 @@ class ENVIRONMENT : public RaisimGymEnv {
     } else {
       action_diff_sq_ = (actionDouble - action_prev_).squaredNorm();
     }
-    // note: max_torque_ not calculated here
+
+    std::vector<bool> foot_contact_state(4, false);
+    foot_reward_ = 1;
+    for (auto& contact : go1_->getContacts()) {
+      if (contact.getlocalBodyIndex() ==
+               go1_->getBodyIdx("RR_calf")) {
+        foot_contact_state[0] = true;
+      } else if (contact.getlocalBodyIndex() ==
+                 go1_->getBodyIdx("RL_calf")) {
+        foot_contact_state[1] = true;
+      } else if (contact.getlocalBodyIndex() ==
+                 go1_->getBodyIdx("FR_calf")) {
+        foot_contact_state[2] = true;
+      } else if (contact.getlocalBodyIndex() ==
+                 go1_->getBodyIdx("FL_calf")) {
+        foot_contact_state[3] = true;
+      }
+    }
+
+    foot_reward_ = 1.0;
+    for (int k = 0; k < 4; ++k) {
+      if (foot_contact_state[k] != ref_foot_contact[k]){
+        foot_reward_ = 0.0;
+        break;
+      }
+    }
+    // note: max_torque_ not calculated heregetBodyIdx
   }
 
   /**
@@ -666,6 +694,7 @@ class ENVIRONMENT : public RaisimGymEnv {
   int max_sim_step_;
   double total_reward_;
   double terminalRewardCoeff_;
+  double foot_reward_;
   Eigen::VectorXd actionStd_, obDouble_;
   Eigen::Vector3d bodyLinearVel_, bodyAngularVel_;
   std::set<size_t> footIndices_;
@@ -690,6 +719,7 @@ class ENVIRONMENT : public RaisimGymEnv {
   double ref_t_;
   Eigen::Vector3d ref_body_pos_;
   Eigen::Vector4d ref_body_quat_;
+  Eigen::Vector4d ref_foot_contact;
   Eigen::Vector3d ref_body_lin_vel_;
   Eigen::Vector3d ref_body_ang_vel_;
   Vector12d ref_joint_pos_;
