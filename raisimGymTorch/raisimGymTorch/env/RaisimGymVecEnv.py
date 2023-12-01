@@ -11,6 +11,49 @@ import torch
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
+
+def make_solo8(data, data_joint_pos, data_joint_vel):
+    p_targets = np.zeros((len(data), 15))
+    d_targets = np.zeros((len(data), 14))
+
+    p_targets[:,:7] = data[:,:7]
+    p_targets[:,7:] = data_joint_pos[:,:]
+    d_targets[:,:6] = data[:,15:21]
+    d_targets[:,6:] = data_joint_vel[:,:]
+
+    return np.concatenate([p_targets, d_targets], axis=1)
+
+
+def format_reference(data, chosen_feats = None):
+    """
+    data: reference motion traj
+    """
+    mask = [0,1,2,3,4,5,6,8,9,11,12,14,15,17,18,19,20,21,22,23,24,26,27,29,30,32,33,35,36]
+
+    data = data[:,mask]
+    data_joint_pos = data[:,7:15]
+    data_joint_vel = data[:,21:]
+
+    dataRR = data_joint_pos[:,0:2]
+    dataRR_vel = data_joint_vel[:,0:2]
+    dataRL = data_joint_pos[:,2:4]
+    dataRL_vel = data_joint_vel[:,2:4]
+    dataFR = data_joint_pos[:,4:6]
+    dataFR_vel = data_joint_vel[:,4:6]
+    dataFL = data_joint_pos[:,6:]
+    dataFL_vel = data_joint_vel[:,6:]
+
+    data_joint_pos = np.concatenate((dataFL,dataFR,dataRL,dataRR),axis=-1)
+    data_joint_vel = np.concatenate((dataFL_vel,dataFR_vel,dataRL_vel,dataRR_vel),axis=-1)
+
+    solo8_data = make_solo8(data, data_joint_pos, data_joint_vel)
+
+    if chosen_feats is not None:
+        solo8_data = solo8_data[:, chosen_feats]
+    
+    return solo8_data
+
+
 class RaisimGymVecEnv:
 
     def __init__(self, impl, normalize_ob=True, seed=0, clip_obs=10.):
@@ -22,6 +65,7 @@ class RaisimGymVecEnv:
         self.num_obs = self.wrapper.getObDim()
         self.num_acts = self.wrapper.getActionDim()
         self._observation = np.zeros([self.num_envs, self.num_obs], dtype=np.float32)
+        self._ref = np.zeros((self.num_envs, 37))  #NOTE: dim = (n_envs, n_columns) of the reference csv file 
         self.actions = np.zeros([self.num_envs, self.num_acts], dtype=np.float32)
         self.log_prob = np.zeros(self.num_envs, dtype=np.float32)
         self._reward = np.zeros(self.num_envs, dtype=np.float32)
@@ -71,6 +115,12 @@ class RaisimGymVecEnv:
     def observe(self, update_statistics=True):
         self.wrapper.observe(self._observation, update_statistics)
         return self._observation
+    
+    def getref(self):
+        self.wrapper.getref(self._ref)
+        ref = format_reference(self._ref)
+        return ref
+        
 
     def reset(self):
         self._reward = np.zeros(self.num_envs, dtype=np.float32)
@@ -191,6 +241,9 @@ class RaisimGymVecTorchEnv:
 
         self._observation_torch[:, :] = torch.from_numpy(self._observation[: ,:]).to(device)
         return self._observation_torch
+    
+
+
 
     def reset(self):
         self._reward[:] = np.zeros(self.num_envs, dtype=np.float32)
