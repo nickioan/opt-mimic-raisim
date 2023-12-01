@@ -89,6 +89,13 @@ class VectorizedEnvironment {
       updateObservationStatisticsAndNormalize(ob, updateStatistics);
   }
 
+  void getref(Eigen::Ref<EigenRowMajorMat> &ref, bool updateStatistics) {
+#pragma omp parallel for schedule(auto)
+    for (int i = 0; i < num_envs_; i++)
+      environments_[i]->getref(ob.row(i));
+
+  }
+
 
   void step(Eigen::Ref<EigenRowMajorMat> &action,
             Eigen::Ref<EigenVec> &reward,
