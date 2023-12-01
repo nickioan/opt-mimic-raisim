@@ -69,67 +69,67 @@ class ENVIRONMENT : public RaisimGymEnv {
 
     // iterate through joint torque reference, setting desired contact state to
     // 1 if contact and 0 otherwise. Also record transition edges
-    for (int time_idx = 0; time_idx < ref_traj_.rows(); time_idx++) {
-      curr_ref_joint_torque
-          << ref_traj_.row(time_idx).transpose().segment(30, 8);
+    // for (int time_idx = 0; time_idx < ref_traj_.rows(); time_idx++) {
+    //   curr_ref_joint_torque
+    //       << ref_traj_.row(time_idx).transpose().segment(30, 8);
 
-      for (int leg_idx = 0; leg_idx < 4; leg_idx++) {
-        // contact assumed to be desired if joint torques are nonzero
-        ref_contact_state_traj_(time_idx, leg_idx) =
-            curr_ref_joint_torque.segment(2 * leg_idx, 2).squaredNorm() > 10e-6;
+    //   for (int leg_idx = 0; leg_idx < 4; leg_idx++) {
+    //     // contact assumed to be desired if joint torques are nonzero
+    //     ref_contact_state_traj_(time_idx, leg_idx) =
+    //         curr_ref_joint_torque.segment(2 * leg_idx, 2).squaredNorm() > 10e-6;
 
-        // record time indices of contact transitions
-        if (time_idx != 0 &&
-            ref_contact_state_traj_(time_idx, leg_idx) !=
-                ref_contact_state_traj_(time_idx - 1, leg_idx)) {
-          if (leg_idx == 0) {
-            fl_edge_indices.push_back(time_idx);
-          } else if (leg_idx == 1) {
-            fr_edge_indices.push_back(time_idx);
-          } else if (leg_idx == 2) {
-            hl_edge_indices.push_back(time_idx);
-          } else if (leg_idx == 3) {
-            hr_edge_indices.push_back(time_idx);
-          }
-        }
-      }
-    }
+    //     // record time indices of contact transitions
+    //     if (time_idx != 0 &&
+    //         ref_contact_state_traj_(time_idx, leg_idx) !=
+    //             ref_contact_state_traj_(time_idx - 1, leg_idx)) {
+    //       if (leg_idx == 0) {
+    //         fl_edge_indices.push_back(time_idx);
+    //       } else if (leg_idx == 1) {
+    //         fr_edge_indices.push_back(time_idx);
+    //       } else if (leg_idx == 2) {
+    //         hl_edge_indices.push_back(time_idx);
+    //       } else if (leg_idx == 3) {
+    //         hr_edge_indices.push_back(time_idx);
+    //       }
+    //     }
+    //   }
+    // }
 
     // for each leg, iterate over each transition and set tolerance region
     // contact state to 2, indicating that either contact state is acceptable
     int edge_tol = 3;  // defines half width of tolerance region
-    for (int vec_idx = 0; vec_idx < fl_edge_indices.size(); vec_idx++) {
-      for (int tol_reg_idx = std::max(0, fl_edge_indices[vec_idx] - edge_tol);
-           tol_reg_idx <= std::min(int(ref_contact_state_traj_.rows()) - 1,
-                                   fl_edge_indices[vec_idx] + edge_tol);
-           tol_reg_idx++) {
-        ref_contact_state_traj_(tol_reg_idx, 0) = 2;
-      }
-    }
-    for (int vec_idx = 0; vec_idx < fr_edge_indices.size(); vec_idx++) {
-      for (int tol_reg_idx = std::max(0, fr_edge_indices[vec_idx] - edge_tol);
-           tol_reg_idx <= std::min(int(ref_contact_state_traj_.rows()) - 1,
-                                   fr_edge_indices[vec_idx] + edge_tol);
-           tol_reg_idx++) {
-        ref_contact_state_traj_(tol_reg_idx, 1) = 2;
-      }
-    }
-    for (int vec_idx = 0; vec_idx < hl_edge_indices.size(); vec_idx++) {
-      for (int tol_reg_idx = std::max(0, hl_edge_indices[vec_idx] - edge_tol);
-           tol_reg_idx <= std::min(int(ref_contact_state_traj_.rows()) - 1,
-                                   hl_edge_indices[vec_idx] + edge_tol);
-           tol_reg_idx++) {
-        ref_contact_state_traj_(tol_reg_idx, 2) = 2;
-      }
-    }
-    for (int vec_idx = 0; vec_idx < hr_edge_indices.size(); vec_idx++) {
-      for (int tol_reg_idx = std::max(0, hr_edge_indices[vec_idx] - edge_tol);
-           tol_reg_idx <= std::min(int(ref_contact_state_traj_.rows()) - 1,
-                                   hr_edge_indices[vec_idx] + edge_tol);
-           tol_reg_idx++) {
-        ref_contact_state_traj_(tol_reg_idx, 3) = 2;
-      }
-    }
+    // for (int vec_idx = 0; vec_idx < fl_edge_indices.size(); vec_idx++) {
+    //   for (int tol_reg_idx = std::max(0, fl_edge_indices[vec_idx] - edge_tol);
+    //        tol_reg_idx <= std::min(int(ref_contact_state_traj_.rows()) - 1,
+    //                                fl_edge_indices[vec_idx] + edge_tol);
+    //        tol_reg_idx++) {
+    //     ref_contact_state_traj_(tol_reg_idx, 0) = 2;
+    //   }
+    // }
+    // for (int vec_idx = 0; vec_idx < fr_edge_indices.size(); vec_idx++) {
+    //   for (int tol_reg_idx = std::max(0, fr_edge_indices[vec_idx] - edge_tol);
+    //        tol_reg_idx <= std::min(int(ref_contact_state_traj_.rows()) - 1,
+    //                                fr_edge_indices[vec_idx] + edge_tol);
+    //        tol_reg_idx++) {
+    //     ref_contact_state_traj_(tol_reg_idx, 1) = 2;
+    //   }
+    // }
+    // for (int vec_idx = 0; vec_idx < hl_edge_indices.size(); vec_idx++) {
+    //   for (int tol_reg_idx = std::max(0, hl_edge_indices[vec_idx] - edge_tol);
+    //        tol_reg_idx <= std::min(int(ref_contact_state_traj_.rows()) - 1,
+    //                                hl_edge_indices[vec_idx] + edge_tol);
+    //        tol_reg_idx++) {
+    //     ref_contact_state_traj_(tol_reg_idx, 2) = 2;
+    //   }
+    // }
+    // for (int vec_idx = 0; vec_idx < hr_edge_indices.size(); vec_idx++) {
+    //   for (int tol_reg_idx = std::max(0, hr_edge_indices[vec_idx] - edge_tol);
+    //        tol_reg_idx <= std::min(int(ref_contact_state_traj_.rows()) - 1,
+    //                                hr_edge_indices[vec_idx] + edge_tol);
+    //        tol_reg_idx++) {
+    //     ref_contact_state_traj_(tol_reg_idx, 3) = 2;
+    //   }
+    // }
 
     // // uncomment to write contact state trajectory to csv for debugging
     // Eigen::MatrixXd ref_contact_state_traj_double = ref_contact_state_traj_.cast<double>();
@@ -362,7 +362,7 @@ class ENVIRONMENT : public RaisimGymEnv {
     rewards_.record("joint", std::exp(-joint_error_sq_ / (2.0 * joint_std_ * joint_std_)));
     rewards_.record("action_diff", std::exp(-action_diff_sq_ / (2.0 * action_diff_std_ * action_diff_std_)));
     rewards_.record("max_torque", std::exp(-max_torque_ * max_torque_ / (2.0 * max_torque_std_ * max_torque_std_)));
-    rewards_.record("foot_track",foot_reward_);
+    // rewards_.record("foot_track",foot_reward_);
 
     // // uncomment to print reward components. Save to csv file via
     // // python test_policy.py exp-name/iterX.pt >> exp-name-reward-log.csv
@@ -475,15 +475,15 @@ class ENVIRONMENT : public RaisimGymEnv {
     }
 
     // terminate if actual and desired contact states don't match
-    for (int leg_idx = 0; leg_idx < contact_state.size(); leg_idx++) {
-      // value of 2 in the reference indicates that either contact state is
-      // acceptable
-      if (ref_contact_state_(leg_idx) == 2) {
-        continue;
-      } else if (contact_state[leg_idx] != ref_contact_state_(leg_idx)) {
-        return true;
-      }
-    }
+    // for (int leg_idx = 0; leg_idx < contact_state.size(); leg_idx++) {
+    //   // value of 2 in the reference indicates that either contact state is
+    //   // acceptable
+    //   if (ref_contact_state_(leg_idx) == 2) {
+    //     continue;
+    //   } else if (contact_state[leg_idx] != ref_contact_state_(leg_idx)) {
+    //     return true;
+    //   }
+    // }
 
     // computeTrackingError(); // redundant call for good measure
 
@@ -512,16 +512,17 @@ class ENVIRONMENT : public RaisimGymEnv {
     Eigen::Matrix<double, 38, 1> traj_t;
     traj_t << ref_traj_.row(sim_step_).transpose();
     // ref_t_ = traj_t(0);
-    ref_body_pos_ << traj_t.segment(0, 3);
-    ref_body_quat_ << traj_t.segment(3, 4);
-    ref_joint_pos_ << traj_t.segment(7, 8);
-    ref_body_lin_vel_ << traj_t.segment(15, 3);
-    ref_body_ang_vel_ << traj_t.segment(18, 3);
-    ref_joint_vel_ << traj_t.segment(21, 8);
-    ref_foot_contact << traj_t.segment(29, 4);
+    ref_body_pos_ << traj_t.segment(0, 3); // position (x,y,z)
+    ref_body_quat_ << traj_t.segment(3, 4); // orientation (quaternion)
+    ref_joint_pos_ << traj_t.segment(7, 8); // joint angles
+    ref_body_lin_vel_ << traj_t.segment(15, 3); // linear velocity of base
+    ref_body_ang_vel_ << traj_t.segment(18, 3); // angular velocity of base
+    ref_joint_vel_ << traj_t.segment(21, 8); // joint angular velocity
+    // ref_foot_contact << traj_t.segment(29, 4);
+
     //ref_joint_torque_ << traj_t.segment(30, 8);
 
-    ref_contact_state_ << ref_contact_state_traj_.row(sim_step_).transpose();
+    //ref_contact_state_ << ref_contact_state_traj_.row(sim_step_).transpose();
 
     // in lieu of assert() which doesn't seem to work
     // if (std::abs(ref_t_ - control_dt_ * sim_step_ ) >= control_dt_) {
@@ -548,31 +549,31 @@ class ENVIRONMENT : public RaisimGymEnv {
       action_diff_sq_ = (actionDouble - action_prev_).squaredNorm();
     }
     // note: max_torque_ not calculated here
-    std::vector<bool> foot_contact_state(4, false);
-    foot_reward_ = 1;
-    for (auto& contact : go1_->getContacts()) {
-      if (contact.getlocalBodyIndex() ==
-               go1_->getBodyIdx("RR_calf")) {
-        foot_contact_state[0] = true;
-      } else if (contact.getlocalBodyIndex() ==
-                 go1_->getBodyIdx("RL_calf")) {
-        foot_contact_state[1] = true;
-      } else if (contact.getlocalBodyIndex() ==
-                 go1_->getBodyIdx("FR_calf")) {
-        foot_contact_state[2] = true;
-      } else if (contact.getlocalBodyIndex() ==
-                 go1_->getBodyIdx("FL_calf")) {
-        foot_contact_state[3] = true;
-      }
-    }
+    // std::vector<bool> foot_contact_state(4, false);
+    // foot_reward_ = 1;
+    // for (auto& contact : go1_->getContacts()) {
+    //   if (contact.getlocalBodyIndex() ==
+    //            go1_->getBodyIdx("RR_calf")) {
+    //     foot_contact_state[0] = true;
+    //   } else if (contact.getlocalBodyIndex() ==
+    //              go1_->getBodyIdx("RL_calf")) {
+    //     foot_contact_state[1] = true;
+    //   } else if (contact.getlocalBodyIndex() ==
+    //              go1_->getBodyIdx("FR_calf")) {
+    //     foot_contact_state[2] = true;
+    //   } else if (contact.getlocalBodyIndex() ==
+    //              go1_->getBodyIdx("FL_calf")) {
+    //     foot_contact_state[3] = true;
+    //   }
+    // }
 
-    foot_reward_ = 1.0;
-    for (int k = 0; k < 4; ++k) {
-      if (foot_contact_state[k] != ref_foot_contact[k]){
-        foot_reward_ = 0.0;
-        break;
-      }
-    }
+    // foot_reward_ = 1.0;
+    // for (int k = 0; k < 4; ++k) {
+    //   if (foot_contact_state[k] != ref_foot_contact[k]){
+    //     foot_reward_ = 0.0;
+    //     break;
+    //   }
+    // }
   }
 
   /**

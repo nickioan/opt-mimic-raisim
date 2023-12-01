@@ -562,7 +562,7 @@ def mkdir(base, name):
 if __name__ == '__main__':
     import json
     from ruamel.yaml import YAML, dump, RoundTripDumper
-    from raisimGymTorch.env.bin import solo8_env
+    from raisimGymTorch.env.bin import robot2robot_env
     from raisimGymTorch.env.RaisimGymVecEnv import RaisimGymVecTorchEnv as VecEnv
     from raisimGymTorch.helper.raisim_gym_helper import ConfigurationSaver, load_param, tensorboard_launcher
 
@@ -603,7 +603,7 @@ if __name__ == '__main__':
 
     # create environment from the configuration file
     env = VecEnv(
-        solo8_env.RaisimGymEnv(
+        robot2robot_env.RaisimGymEnv(
             home_path + "/rsc",
             dump(
                 cfg['environment'],
