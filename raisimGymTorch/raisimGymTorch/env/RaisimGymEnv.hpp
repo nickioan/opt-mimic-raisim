@@ -38,6 +38,7 @@ class RaisimGymEnv {
   virtual void curriculumUpdate() {};
   virtual void close() {};
   virtual void setSeed(int seed) {};
+  virtual void getref(Eigen::Ref<EigenVec> ref)
   ////////////////////////////////
 
   void setSimulationTimeStep(double dt) { simulation_dt_ = dt; world_->setTimeStep(dt); }
