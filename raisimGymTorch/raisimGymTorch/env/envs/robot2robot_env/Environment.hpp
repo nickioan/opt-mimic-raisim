@@ -47,7 +47,7 @@ class ENVIRONMENT : public RaisimGymEnv {
     ref_contact_state_.setZero();
 
     /// load reference trajectory
-    std::string ref_filename = "traj/" + cfg["ref_filename"].As<std::string>() + ".csv";
+    std::string ref_filename = "traj/solo8/" + cfg["ref_filename"].As<std::string>() + ".csv";
     // check if reference trajectory csv file exists
     // https://www.tutorialspoint.com/the-best-way-to-check-if-a-file-exists-using-standard-c-cplusplus
     std::ifstream ifile;
@@ -142,12 +142,13 @@ class ENVIRONMENT : public RaisimGymEnv {
     /// set initial force to zero
     solo8_->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_));
 
+    // FOR NOW IGNORE ACTUATION LIMITS
     // set actuation limits
-    double jointLimit = 2.7;
-    Eigen::VectorXd jointUpperLimit(gvDim_), jointLowerLimit(gvDim_);
-    jointUpperLimit.setZero(); jointUpperLimit.tail(nJoints_).setConstant(jointLimit);
-    jointLowerLimit.setZero(); jointLowerLimit.tail(nJoints_).setConstant(-jointLimit);
-    solo8_->setActuationLimits(jointUpperLimit, jointLowerLimit);
+    // double jointLimit = 2.7;
+    // Eigen::VectorXd jointUpperLimit(gvDim_), jointLowerLimit(gvDim_);
+    // jointUpperLimit.setZero(); jointUpperLimit.tail(nJoints_).setConstant(jointLimit);
+    // jointLowerLimit.setZero(); jointLowerLimit.tail(nJoints_).setConstant(-jointLimit);
+    // solo8_->setActuationLimits(jointUpperLimit, jointLowerLimit);
 
     /// MUST BE DONE FOR ALL ENVIRONMENTS
     horizon_ = 3;
@@ -361,6 +362,7 @@ class ENVIRONMENT : public RaisimGymEnv {
     rewards_.record("joint", std::exp(-joint_error_sq_ / (2.0 * joint_std_ * joint_std_)));
     rewards_.record("action_diff", std::exp(-action_diff_sq_ / (2.0 * action_diff_std_ * action_diff_std_)));
     rewards_.record("max_torque", std::exp(-max_torque_ * max_torque_ / (2.0 * max_torque_std_ * max_torque_std_)));
+    rewards_.record("foot_track",foot_reward_);
 
     // // uncomment to print reward components. Save to csv file via
     // // python test_policy.py exp-name/iterX.pt >> exp-name-reward-log.csv
@@ -509,21 +511,22 @@ class ENVIRONMENT : public RaisimGymEnv {
   void setReferenceMotionTraj() {
     Eigen::Matrix<double, 38, 1> traj_t;
     traj_t << ref_traj_.row(sim_step_).transpose();
-    ref_t_ = traj_t(0);
-    ref_body_pos_ << traj_t.segment(1, 3);
-    ref_body_quat_ << traj_t.segment(4, 4);
-    ref_body_lin_vel_ << traj_t.segment(8, 3);
-    ref_body_ang_vel_ << traj_t.segment(11, 3);
-    ref_joint_pos_ << traj_t.segment(14, 8);
-    ref_joint_vel_ << traj_t.segment(22, 8);
-    ref_joint_torque_ << traj_t.segment(30, 8);
+    // ref_t_ = traj_t(0);
+    ref_body_pos_ << traj_t.segment(0, 3);
+    ref_body_quat_ << traj_t.segment(3, 4);
+    ref_joint_pos_ << traj_t.segment(7, 8);
+    ref_body_lin_vel_ << traj_t.segment(15, 3);
+    ref_body_ang_vel_ << traj_t.segment(18, 3);
+    ref_joint_vel_ << traj_t.segment(21, 8);
+    ref_foot_contact << traj_t.segment(29, 4);
+    //ref_joint_torque_ << traj_t.segment(30, 8);
 
     ref_contact_state_ << ref_contact_state_traj_.row(sim_step_).transpose();
 
     // in lieu of assert() which doesn't seem to work
-    if (std::abs(ref_t_ - control_dt_ * sim_step_ ) >= control_dt_) {
-      throw std::invalid_argument("control_dt doesn't match csv reference file");
-    }
+    // if (std::abs(ref_t_ - control_dt_ * sim_step_ ) >= control_dt_) {
+    //   throw std::invalid_argument("control_dt doesn't match csv reference file");
+    // }
   }
 
   void computeTrackingError(const Eigen::MatrixXd actionDouble) {
@@ -545,6 +548,31 @@ class ENVIRONMENT : public RaisimGymEnv {
       action_diff_sq_ = (actionDouble - action_prev_).squaredNorm();
     }
     // note: max_torque_ not calculated here
+    std::vector<bool> foot_contact_state(4, false);
+    foot_reward_ = 1;
+    for (auto& contact : go1_->getContacts()) {
+      if (contact.getlocalBodyIndex() ==
+               go1_->getBodyIdx("RR_calf")) {
+        foot_contact_state[0] = true;
+      } else if (contact.getlocalBodyIndex() ==
+                 go1_->getBodyIdx("RL_calf")) {
+        foot_contact_state[1] = true;
+      } else if (contact.getlocalBodyIndex() ==
+                 go1_->getBodyIdx("FR_calf")) {
+        foot_contact_state[2] = true;
+      } else if (contact.getlocalBodyIndex() ==
+                 go1_->getBodyIdx("FL_calf")) {
+        foot_contact_state[3] = true;
+      }
+    }
+
+    foot_reward_ = 1.0;
+    for (int k = 0; k < 4; ++k) {
+      if (foot_contact_state[k] != ref_foot_contact[k]){
+        foot_reward_ = 0.0;
+        break;
+      }
+    }
   }
 
   /**
@@ -706,6 +734,7 @@ class ENVIRONMENT : public RaisimGymEnv {
   double joint_error_sq_;
   double action_diff_sq_;
   double max_torque_;
+  double foot_reward_;
 };
 thread_local std::mt19937 raisim::ENVIRONMENT::gen_;
 }

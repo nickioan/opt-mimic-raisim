@@ -31,10 +31,10 @@ environment:
       std: 0.02
   reward:
     position:
-      coeff: 0.3
+      coeff: 0.2
       std: 0.05
     orientation:
-      coeff: 0.3
+      coeff: 0.2
       std: 0.14
     joint:
       coeff: 0.2
@@ -45,6 +45,9 @@ environment:
     max_torque:
       coeff: 0.1
       std: 3.0
+    foot_track:
+      coeff: 0.2
+      std: 0.0
 
 architecture:
   policy_net: [128, 128]
