@@ -430,6 +430,11 @@ class ENVIRONMENT : public RaisimGymEnv {
     ob = obDouble_.cast<float>();
   }
 
+  void getref(Eigen::Ref<EigenVec> ref) final {
+    /// convert it to float
+    ref = ref_traj_.row(sim_step_).transpose();
+  }
+
   bool time_limit_reached() {
     return sim_step_ > max_sim_step_;
   }
