@@ -20,8 +20,23 @@ ground = world.addGround()
 go1 = world.addArticulatedSystem(go1_urdf_file)
 go1.setName("Go1")
 
+# go1
+# 0-2: xyz position
+# 3-6: quaternions
+# 7-9: rear right, joint angle, direction from body to toe
+# 10-12: rear left
+# 13-15: front right
+# 16-18: front left
+
+# solo8:
+# ...
+# 7-9: FL, joint angle, direction from body to toe
+# 10-12: FR
+# 13-15: RL
+# 16-18: RR
 go1_nominal_joint_config = np.array([0, 0.0, 0.30, 1.0, 0.0, 0.0, 0.0, 0.0, 0.8, -1.7,
                                         0.00, 0.8, -1.7, 0.0, 0.8, -1.7, 0.00, 0.8, -1.7])
+
 
 offset_pl = np.array([0.0,0.8,-1.7])
 
@@ -32,6 +47,11 @@ go1.setPdTarget(go1_nominal_joint_config, np.zeros([18]))
 server.launchServer(8080)
 
 def updateTargets(index):
+
+    # SET TARGET POSITION/VELOCITIES
+
+    # FOR SOLO8 Don't Use Velocities (Keep them zero)
+
     p_targets = np.zeros(19)
     d_targets = np.zeros(18)
     p_targets[7:10] = dataRR[index] + offset_pl
@@ -46,8 +66,9 @@ def updateTargets(index):
     d_targets[15:] = dataFL_vel[index]
 
     go1.setPdTarget(p_targets,d_targets)
+
+    # READ STATE INFORMATION FROM SIMULATOR
     pos,vel = go1.getState()
-    footIndex = go1.getBodyIdx("LF_SHANK")
     cotacts = [0,0,0,0]
     for contact in go1.getContacts():
         if contact.getlocalBodyIndex() == go1.getBodyIdx("RR_calf"):
