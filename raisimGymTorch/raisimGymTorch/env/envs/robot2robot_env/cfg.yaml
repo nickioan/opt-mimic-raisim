@@ -13,6 +13,7 @@ environment:
   max_time: 100.0
   ref_filename: preprocessed_trot forward fast
   disable_termination: False
+  use_pca: True
   randomization:
     friction:
       mean: 0.8
