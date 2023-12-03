@@ -154,7 +154,8 @@ class ENVIRONMENT : public RaisimGymEnv {
     horizon_ = 3;
     sensorDim_ = 20;
     actionDim_ = nJoints_; actionStd_.setZero(actionDim_);
-    obDim_ = sensorDim_ + 2;
+    // obDim_ = sensorDim_ + 2;
+    obDim_ = sensorDim_ + 3;
     obDouble_.setZero(obDim_);
     sensor_reading_.setZero(sensorDim_);
     sensor_history_.setZero(horizon_ * sensorDim_);
@@ -429,7 +430,8 @@ class ENVIRONMENT : public RaisimGymEnv {
 
   void observe(Eigen::Ref<EigenVec> ob) final {
     /// convert it to float
-    ob = obDouble_.cast<float>();
+    ob.head(obDouble_.size()) = obDouble_.cast<float>();
+    ob(obDouble_.size()) = static_cast<float>(sim_step_);
   }
 
   bool time_limit_reached() {
