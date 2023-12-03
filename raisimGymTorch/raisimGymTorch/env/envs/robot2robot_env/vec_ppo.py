@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from operator import add, sub
 import pickle
 import pandas as pd
-
+import joblib
 
 class PPOStorage:
     def __init__(self, num_inputs, num_outputs, max_size=64000):
@@ -101,11 +101,15 @@ class PPOStorage:
         self.log_probs[:] = self.log_probs[permuted_index]
 
 
+def mod_state(state):
+    return state[..., :-1]
+    
+
 class RL(object):
     def __init__(self, env, hidden_layer=[64, 64]):
         self.env = env
         #self.env.env.disableViewer = False
-        self.num_inputs = env.observation_space.shape[0]
+        self.num_inputs = env.observation_space.shape[0] - 1  # last element is timestamp
         self.num_outputs = env.action_space.shape[0]
         self.hidden_layer = hidden_layer
 
