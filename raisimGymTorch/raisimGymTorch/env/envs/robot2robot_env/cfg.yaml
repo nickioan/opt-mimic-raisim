@@ -11,7 +11,7 @@ environment:
   simulation_dt: 0.001 #0.002
   control_dt: 0.02 #0.02
   max_time: 100.0
-  ref_filename: preprocessed_trot forward fast
+  ref_filename: 09-08-biped-step-ref
   disable_termination: False
   randomization:
     friction:
@@ -31,10 +31,10 @@ environment:
       std: 0.02
   reward:
     position:
-      coeff: 0.2
+      coeff: 0.3
       std: 0.05
     orientation:
-      coeff: 0.2
+      coeff: 0.3
       std: 0.14
     joint:
       coeff: 0.2
@@ -52,3 +52,8 @@ environment:
 architecture:
   policy_net: [128, 128]
   value_net: [128, 128]
+
+pca:
+  num_steps: 16
+  n_components: 64
+  train_feats: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
