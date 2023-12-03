@@ -14,7 +14,23 @@ world.setTimeStep(0.001)
 server = raisim.RaisimServer(world)
 ground = world.addGround()
 
-data = np.loadtxt("go1_motions_processed/preprocessed_bound forward slowly.csv",delimiter=",")
+# go1
+# 0-2: xyz position
+# 3-6: quaternions
+# 7-9: rear right, joint angle, direction from body to toe
+# 10-12: rear left
+# 13-15: front right
+# 16-18: front left
+
+# solo8:
+# ...
+# 7-9: FL, joint angle, direction from body to toe
+# 10-12: FR
+# 13-15: RL
+# 16-18: RR
+
+filename = 'move forward slowly in pacing gait.csv'
+data = np.loadtxt("go1_motions_processed/preprocessed_"+filename,delimiter=",")
 mask = [0,1,2,3,4,5,6,8,9,11,12,14,15,17,18,19,20,21,22,23,24,26,27,29,30,32,33,35,36]
 #mapping = [1., 1., 1., 1., -1.,-1., -1., -1.]
 data = data[:,mask]
@@ -44,7 +60,18 @@ solo8_nominal_joint_config[3] = 1
 solo8_nominal_joint_config[7:] = np.array([np.pi/4.0, -np.pi/2.0, np.pi/4.0, -np.pi/2.0,
                                            -np.pi/4.0, np.pi/2.0, -np.pi/4.0, np.pi/2.0])
 solo8.setGeneralizedCoordinate(solo8_nominal_joint_config)
-solo8.setPdGains(3*np.ones([14]), 0.5*np.ones([14]))
+# Trot forward fast:
+# kp = 9.8 * 0.6
+# kd = kp * 0.1
+
+# Bound forward fast
+# kp = 9.8 * 0.7
+# kd = kp * 0.3
+
+# move forward slowly in pacing gait
+kp = 9.8 * 0.6
+kd = kp * 0.1
+solo8.setPdGains(kp*np.ones([14]), kd*np.ones([14]))
 solo8.setPdTarget(solo8_nominal_joint_config, np.zeros([14]))
 
 
@@ -65,15 +92,41 @@ def updateTargets(index):
     solo8.setPdTarget(p_targets,d_targets)
     world.integrate()
 
+    # READ STATE INFORMATION FROM SIMULATOR
+    pos,vel = solo8.getState()
+    idx = [contact.getlocalBodyIndex() for contact in solo8.getContacts()]
+    contacts = [0,0,0,0]
+    for i in idx:
+        if i == solo8.getBodyIdx("HR_LOWER_LEG"):
+            contacts[0] = 1
+        elif i == solo8.getBodyIdx("HL_LOWER_LEG"):
+            contacts[1] = 1
+        elif i == solo8.getBodyIdx("FR_LOWER_LEG"):
+            contacts[2] = 1
+        elif i == solo8.getBodyIdx("FL_LOWER_LEG"):
+            contacts[3] = 1
+    state = np.hstack((pos,vel,contacts))
+    # state = np.hstack((pos,vel))
+    return state
+
 time.sleep(2)
 world.integrate1()
 counter = 1
+states = []
+flag = 1
 
 for i in range(1000000000):
     time.sleep(0.001)
     world.integrate()
     if i % 20 == 0:
-        updateTargets(counter)
+        robot_state = updateTargets(counter)
+        states.append(robot_state)
         counter+=1
+        if counter >= len(data):
+            counter = 0
+            if flag:
+                np.savetxt('solo8_motions/preprocessed_'+filename, states, delimiter=",")
+                print('States from the simulator has been written to file '+filename)
+                flag = 0
 
 server.killServer()
