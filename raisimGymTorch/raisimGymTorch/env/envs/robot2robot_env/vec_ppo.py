@@ -18,6 +18,9 @@ from operator import add, sub
 import pickle
 import pandas as pd
 import joblib
+import os.path as osp
+
+from pretrain_pca import DATA_DIR, load_traj
 
 class PPOStorage:
     def __init__(self, num_inputs, num_outputs, max_size=64000):
@@ -103,11 +106,120 @@ class PPOStorage:
 
 def mod_state(state):
     return state[..., :-1]
+
+
+class pcaReward:
+    def __init__(self, env, cfg) -> None:
+        self.cfg = cfg
+        self.env = env
+
+        self.pca_cfg = self.cfg["pca"]
+        self.n_step = self.pca_cfg['num_steps']
+
+        ## load pretrain
+        pca_f = osp.join(osp.dirname(osp.realpath(__file__)), "motion_pca.joblib")
+        assert osp.exists(pca_f), "pca model does not exist, please run ./pretrain_pca.py"
+        self.pca = joblib.load(pca_f)
+
+        ## load ref file
+        ref_traj_f = osp.join(DATA_DIR, self.cfg["environment"]["ref_filename"] + ".csv")
+        self.ref_traj = load_traj(ref_traj_f, self.pca_cfg["train_feats"])
+
+
+        self.rewards = []
+        self.obs = []
+        self.ts = []
+
+        self.prev_done = False
     
+    def set_reward(self, rewards):
+        self.rewards = rewards
+    
+    def reset(self):
+        self.rewards = []
+        self.obs = []
+        self.ts = []
+
+    def calc_pca_rew(self):
+        # ts = self.ts[-self.n_step]
+        ts = self.ts[-(self.n_step + 1)].int()
+
+        curr_trajs = torch.stack(self.obs[-self.n_step:], axis=1).reshape(self.env.num_envs, -1).numpy()
+        curr_refs = self.ref_traj[(ts[..., None] + torch.arange(self.n_step))].reshape(self.env.num_envs, -1)
+
+        trajs_coeffs = self.pca.transform(curr_trajs)
+        refs_coeffs = self.pca.transform(curr_refs)
+
+        return torch.from_numpy(np.exp(-np.abs(trajs_coeffs - refs_coeffs))).mean(dim=-1)  # reward function
+
+
+    def update_obs(self, obs, done):
+        done = done.bool()
+        self.ts.append(obs[..., -1])
+        self.obs.append(obs[..., :-1])
+
+        self.update_reward(done)
+        self.prev_done = done
+
+
+    def apply_rew_change(self, pca_rew, update_cond, n_update):
+        if len(self.rewards) == 0:
+            return 
+        
+        for i in range(n_update):
+            idx = -i
+            curr_rew = self.rewards[idx].numpy()
+            curr_rew[update_cond] = pca_rew[update_cond] + curr_rew[update_cond]
+            self.rewards[idx] = torch.from_numpy(curr_rew)
+
+    def calc_early_end_rew(self, done):
+
+        val_idx = (len(self.obs) - 1)%self.n_step
+        # val_idx = (len(self.obs))%self.n_step
+
+        # ts = self.ts[-val_idx].int()
+        ts = self.ts[-(val_idx + 1)].int()
+        n_pad = self.n_step - val_idx
+
+        curr_traj = torch.stack(self.obs[-val_idx:], axis=1)
+        curr_traj = torch.nn.functional.pad(curr_traj, (0, 0, 0, n_pad), value=0).reshape(self.env.num_envs, -1).numpy()   ## figure this out
+
+        curr_refs = self.ref_traj[(ts[..., None] + torch.arange(self.n_step))].reshape(self.env.num_envs, -1)
+
+        trajs_coeffs = self.pca.transform(curr_traj)
+        refs_coeffs = self.pca.transform(curr_refs)
+
+        return torch.from_numpy(np.exp(-np.abs(trajs_coeffs - refs_coeffs))).mean(dim=-1)  # reward function
+
+
+
+
+    def update_reward(self, done):
+
+        # if (len(self.obs))%self.n_step == 0 and (len(self.obs) != 0):
+        if (len(self.obs) - 1)%self.n_step == 0 and (len(self.obs) != 1):
+            pca_rew = self.calc_pca_rew()
+            self.apply_rew_change(pca_rew, ~self.prev_done, self.n_step)
+        
+        # elif (len(self.obs) != 0):
+        elif (len(self.obs) != 1):
+            to_update = ~(self.prev_done) & (done)
+            if (~to_update).any():
+                return
+            
+            pca_rew = self.calc_early_end_rew(done)
+            self.apply_rew_change(pca_rew, to_update, (len(self.obs))%self.n_step)
+            
+    def update_reward_final(self):
+        done = torch.ones(len(self.obs[0]), dtype=bool)
+        to_update = ~(self.prev_done) & (done)
+        pca_rew = self.calc_early_end_rew(done)
+        self.apply_rew_change(pca_rew, to_update, (len(self.obs))%self.n_step)
 
 class RL(object):
-    def __init__(self, env, hidden_layer=[64, 64]):
+    def __init__(self, env, hidden_layer=[64, 64], cfg=None):
         self.env = env
+        self.cfg = cfg
         #self.env.env.disableViewer = False
         self.num_inputs = env.observation_space.shape[0] - 1  # last element is timestamp
         self.num_outputs = env.action_space.shape[0]
@@ -157,6 +269,12 @@ class RL(object):
         self.base_policy = None
 
         self.total_rewards = []
+
+        self.pca_rew = None
+        self.use_pca = cfg["environment"]["use_pca"]
+        if self.use_pca:
+            self.pca_rew = pcaReward(self.env, self.cfg)
+
 
     def normalize_data(self, num_iter=1000, file='shared_obs_stats.pkl'):
         state = self.env.reset()
@@ -292,7 +410,13 @@ class RL(object):
         noise = self.base_noise * self.explore_noise.value
         self.gpu_model.set_noise(noise)
 
+        if self.pca_rew is not None:
+            self.pca_rew.reset()
+            self.pca_rew.set_reward(rewards)
+            self.pca_rew.update_obs(start_state, torch.zeros(len(start_state), dtype=bool))
+
         state = start_state
+        state = mod_state(state)
         total_reward1 = 0
         total_reward2 = 0
         calculate_done1 = False
@@ -305,6 +429,7 @@ class RL(object):
                 log_prob = self.gpu_model.calculate_prob(
                     state, action, mean_action)
 
+
             states.append(state.clone())
             actions.append(action.clone())
             log_probs.append(log_prob.clone())
@@ -313,15 +438,22 @@ class RL(object):
             rewards.append(reward.clone())
 
             dones.append(done.clone())
-
+            
+            if self.pca_rew is not None:
+                self.pca_rew.update_obs(state, done)
+            
+            state = mod_state(state)
             next_states.append(state.clone())
-            #next_state = self.shared_obs_stats.normalize(state)
-
+                
             samples += 1
 
             self.env.reset_time_limit()
         #print("sim time", time.time() - start)
         #import ipdb; ipdb.set_trace()
+
+        if self.pca_rew is not None:
+            self.pca_rew.update_reward_final()
+
         start = time.time()
         counter = num_samples - 1
         R = self.gpu_model.get_value(state)
@@ -613,7 +745,7 @@ if __name__ == '__main__':
                 cfg['environment'],
                 Dumper=RoundTripDumper)),
         cfg['environment'])
-    ppo = RL(env, [128, 128])
+    ppo = RL(env, [128, 128], cfg)
 
     ppo.base_dim = ppo.num_inputs
 
