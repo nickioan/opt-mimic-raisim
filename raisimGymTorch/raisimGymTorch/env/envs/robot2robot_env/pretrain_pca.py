@@ -8,7 +8,7 @@ from ruamel.yaml import YAML
 
 TASK_PATH = osp.dirname(osp.realpath(__file__))
 HOME_PATH = TASK_PATH + "/../../../../.." + "/rsc"
-DATA_DIR = "../go1_env/traj_w_foot"
+DATA_DIR = "traj/solo8/"
 
 
 def make_solo8(data, data_joint_pos, data_joint_vel):
@@ -25,25 +25,27 @@ def make_solo8(data, data_joint_pos, data_joint_vel):
 
 def load_traj(path, chosen_feats = None):
     data = np.loadtxt(path,delimiter=",")
-    mask = [0,1,2,3,4,5,6,8,9,11,12,14,15,17,18,19,20,21,22,23,24,26,27,29,30,32,33,35,36]
+    # mask = [0,1,2,3,4,5,6,8,9,11,12,14,15,17,18,19,20,21,22,23,24,26,27,29,30,32,33,35,36]
 
-    data = data[:,mask]
-    data_joint_pos = data[:,7:15]
-    data_joint_vel = data[:,21:]
+    # data = data[:,mask]
+    # data_joint_pos = data[:,7:15]
+    # data_joint_vel = data[:,21:]
 
-    dataRR = data_joint_pos[:,0:2]
-    dataRR_vel = data_joint_vel[:,0:2]
-    dataRL = data_joint_pos[:,2:4]
-    dataRL_vel = data_joint_vel[:,2:4]
-    dataFR = data_joint_pos[:,4:6]
-    dataFR_vel = data_joint_vel[:,4:6]
-    dataFL = data_joint_pos[:,6:]
-    dataFL_vel = data_joint_vel[:,6:]
+    # dataRR = data_joint_pos[:,0:2]
+    # dataRR_vel = data_joint_vel[:,0:2]
+    # dataRL = data_joint_pos[:,2:4]
+    # dataRL_vel = data_joint_vel[:,2:4]
+    # dataFR = data_joint_pos[:,4:6]
+    # dataFR_vel = data_joint_vel[:,4:6]
+    # dataFL = data_joint_pos[:,6:]
+    # dataFL_vel = data_joint_vel[:,6:]
 
-    data_joint_pos = np.concatenate((dataFL,dataFR,dataRL,dataRR),axis=-1)
-    data_joint_vel = np.concatenate((dataFL_vel,dataFR_vel,dataRL_vel,dataRR_vel),axis=-1)
+    # data_joint_pos = np.concatenate((dataFL,dataFR,dataRL,dataRR),axis=-1)
+    # data_joint_vel = np.concatenate((dataFL_vel,dataFR_vel,dataRL_vel,dataRR_vel),axis=-1)
 
-    solo8_data = make_solo8(data, data_joint_pos, data_joint_vel)
+    # solo8_data = make_solo8(data, data_joint_pos, data_joint_vel)
+
+    solo8_data = data[:,3:-4] # Ingore xyz position and foot contact
 
     if chosen_feats is not None:
         solo8_data = solo8_data[:, chosen_feats]
